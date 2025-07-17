@@ -20,7 +20,9 @@ actor GDKDispatcher {
 
     func enqueue(_ event: GDKEvent) {
         eventQueue.append(event)
-        Task { await dispatch() }
+        Task.detached(priority: .background) { [weak self] in
+            await self?.dispatch()
+        }
     }
 
     func addSubscriber(_ subscriber: GDKSubscriber) {
@@ -34,6 +36,21 @@ actor GDKDispatcher {
         subscriberOffsets.removeValue(forKey: id)
     }
 
+    func saveQueue(to url: URL) {
+        if let data = try? JSONEncoder().encode(eventQueue) {
+            try? data.write(to: url)
+        }
+    }
+
+    func loadQueue(from url: URL) async {
+        guard let data = try? Data(contentsOf: url),
+              let loaded = try? JSONDecoder().decode([GDKEvent].self, from: data) else { return }
+
+        for event in loaded {
+            await enqueue(event)
+        }
+    }
+    
     private func dispatch() async {
         for (id, subscriber) in subscribers {
             guard var offset = subscriberOffsets[id] else { continue }

@@ -12,22 +12,28 @@ public actor GDKSwift {
     private var config: GDKConfiguration?
     private let httpClient: GDKHttpClientProtocol
     private let subject = PassthroughSubject<GDKEvent, Never>()
+    private let persistentFileURL: URL
 
     public var publisher: AnyPublisher<GDKEvent, Never> {
         subject.eraseToAnyPublisher()
     }
 
-    public init(httpClient: GDKHttpClientProtocol? = nil) {
+    public init(httpClient: GDKHttpClientProtocol? = nil, backupURL: URL? = nil) {
         self.httpClient = httpClient ?? GDKHttpClient()
+        
+        self.persistentFileURL = backupURL ?? FileManager.default.temporaryDirectory.appendingPathComponent("gdk_failed_events.json")
     }
 
-    public func initialize(with config: GDKConfiguration) {
+    public func initialize(with config: GDKConfiguration, skipDefaults: Bool = false) {
         self.config = config
         self.dispatcher = GDKDispatcher(config: config)
-        addDefaultEndpointConsumer()
-        addCombinePassthroughSubscriber()
         
-        Task { await restoreFailedEvents() }
+        if !skipDefaults {
+            addDefaultEndpointConsumer()
+            addCombinePassthroughSubscriber()
+        }
+        
+        Task { await restoreQueue() }
     }
 
     public func trackEvent(_ event: GDKEvent) async {
@@ -41,6 +47,16 @@ public actor GDKSwift {
 
     public func removeSubscriber(id: UUID) async {
         await dispatcher?.removeSubscriber(id)
+    }
+
+    public func persistCurrentQueue() async {
+        guard let dispatcher else { return }
+        await dispatcher.saveQueue(to: persistentFileURL)
+    }
+
+    public func restoreQueue() async {
+        guard let dispatcher else { return }
+        await dispatcher.loadQueue(from: persistentFileURL)
     }
 
     private func addDefaultEndpointConsumer() {
@@ -83,36 +99,15 @@ public actor GDKSwift {
     }
     
     private func persistFailedEvent(_ event: GDKEvent) {
-        let url = FileManager.default
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("gdk_failed_events.json")
-
         var events: [GDKEvent] = []
-        if let data = try? Data(contentsOf: url),
+        if let data = try? Data(contentsOf: persistentFileURL),
            let decoded = try? JSONDecoder().decode([GDKEvent].self, from: data) {
             events = decoded
         }
 
         events.append(event)
         if let newData = try? JSONEncoder().encode(events) {
-            try? newData.write(to: url)
-        }
-    }
-
-    private func restoreFailedEvents() async {
-        let url = FileManager.default
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("gdk_failed_events.json")
-
-        guard let data = try? Data(contentsOf: url),
-              let events = try? JSONDecoder().decode([GDKEvent].self, from: data) else {
-            return
-        }
-
-        try? FileManager.default.removeItem(at: url)
-
-        for event in events {
-            await trackEvent(event)
+            try? newData.write(to: persistentFileURL)
         }
     }
 }
