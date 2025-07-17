@@ -17,11 +17,21 @@ enum GDKHttpError: Error {
     case encodeError(Error)
 }
 
-final class GDKHttpClient: Sendable {
-    private let session: URLSession
-    private let decoder: JSONDecoder
+public protocol GDKHttpClientProtocol: Sendable {
+    func request<T: Decodable>(
+        to endpoint: String,
+        method: GDKHttpClient.Method,
+        headers: [String: String]?,
+        parameters: [String: Any]?,
+        attachments: [String: Data]?
+    ) async throws -> T
+}
+
+public final class GDKHttpClient: GDKHttpClientProtocol, Sendable {
+    let session: URLSession
+    let decoder: JSONDecoder
     
-    enum Method: String {
+    public enum Method: String, Sendable {
         case get = "GET"
         case post = "POST"
         case put = "PUT"
@@ -30,12 +40,12 @@ final class GDKHttpClient: Sendable {
         case multipartPost = "MULTIPART_POST"
     }
     
-    init(session: URLSession = .shared, decoder: JSONDecoder = .init()) {
+    public init(session: URLSession = .shared, decoder: JSONDecoder = .init()) {
         self.session = session
         self.decoder = decoder
     }
     
-    func request<T: Decodable>(to endpoint: String, method: Method = .get, headers: [String:String]? = nil, parameters: [String:Any]?, attachments: [String:Data]? = nil) async throws -> T {
+    public func request<T: Decodable>(to endpoint: String, method: Method = .get, headers: [String:String]? = nil, parameters: [String:Any]?, attachments: [String:Data]? = nil) async throws -> T {
         guard var url = URL(string: endpoint) else {
             throw GDKHttpError.unknownEndpoint(endpoint)
         }
@@ -117,7 +127,7 @@ final class GDKHttpClient: Sendable {
         }
     }
     
-    public struct EmptyResponse: Decodable {}
+    public struct EmptyResponse: Decodable, Sendable {}
 }
 
 

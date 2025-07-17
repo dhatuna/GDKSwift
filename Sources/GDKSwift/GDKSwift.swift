@@ -10,20 +10,24 @@ public actor GDKSwift {
 
     private var dispatcher: GDKDispatcher?
     private var config: GDKConfiguration?
-    private let httpClient = GDKHttpClient()
+    private let httpClient: GDKHttpClientProtocol
     private let subject = PassthroughSubject<GDKEvent, Never>()
 
     public var publisher: AnyPublisher<GDKEvent, Never> {
         subject.eraseToAnyPublisher()
     }
 
-    private init() {}
+    public init(httpClient: GDKHttpClientProtocol? = nil) {
+        self.httpClient = httpClient ?? GDKHttpClient()
+    }
 
     public func initialize(with config: GDKConfiguration) {
         self.config = config
         self.dispatcher = GDKDispatcher(config: config)
         addDefaultEndpointConsumer()
         addCombinePassthroughSubscriber()
+        
+        Task { await restoreFailedEvents() }
     }
 
     public func trackEvent(_ event: GDKEvent) async {
@@ -68,13 +72,47 @@ public actor GDKSwift {
 
         for attempt in 1...config.maxRetryCount {
             do {
-                _ = try await httpClient.request(to: config.endpointURL.absoluteString, method: .post, parameters: parameters) as GDKHttpClient.EmptyResponse
+                _ = try await httpClient.request(to: config.endpointURL.absoluteString, method: .post, headers: nil, parameters: parameters, attachments: nil) as GDKHttpClient.EmptyResponse
                 return
             } catch {
                 try? await Task.sleep(nanoseconds: UInt64(attempt) * 1_000_000_000)
             }
         }
 
-        // TODO: Notify failureSubscribers (optional)
+        persistFailedEvent(event)
+    }
+    
+    private func persistFailedEvent(_ event: GDKEvent) {
+        let url = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("gdk_failed_events.json")
+
+        var events: [GDKEvent] = []
+        if let data = try? Data(contentsOf: url),
+           let decoded = try? JSONDecoder().decode([GDKEvent].self, from: data) {
+            events = decoded
+        }
+
+        events.append(event)
+        if let newData = try? JSONEncoder().encode(events) {
+            try? newData.write(to: url)
+        }
+    }
+
+    private func restoreFailedEvents() async {
+        let url = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("gdk_failed_events.json")
+
+        guard let data = try? Data(contentsOf: url),
+              let events = try? JSONDecoder().decode([GDKEvent].self, from: data) else {
+            return
+        }
+
+        try? FileManager.default.removeItem(at: url)
+
+        for event in events {
+            await trackEvent(event)
+        }
     }
 }
