@@ -14,29 +14,16 @@ let package = Package(
             name: "GDKSwift",
             targets: ["GDKSwift"]),
     ],
-    dependencies: [
-        .package(url: "https://github.com/Flight-School/AnyCodable.git", from: "0.6.0")
-    ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
-            name: "GDKSwift",
-            dependencies: [
-                "AnyCodable"
-            ],
-            resources: [
-                .process("Resources")
-            ]
+            name: "GDKSwift"
         ),
         .testTarget(
             name: "GDKSwiftTests",
             dependencies: [
                 "GDKSwift",
-                "AnyCodable"
-            ],
-            resources: [
-                .process("Resources")
             ]
         ),
     ]
