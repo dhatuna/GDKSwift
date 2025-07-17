@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct GDKSubscriber {
+public struct GDKSubscriber: Sendable {
     public let id: UUID
     public let handler: @Sendable (GDKEvent) async -> Void
 

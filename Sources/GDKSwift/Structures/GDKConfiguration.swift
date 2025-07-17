@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct GDKConfiguration {
+public struct GDKConfiguration: Sendable {
     public let endpointURL: URL
     public let maxRetryCount: Int
 

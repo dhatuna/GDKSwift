@@ -7,15 +7,13 @@
 
 import Foundation
 
-import AnyCodable
-
-public struct GDKEvent: Codable, Identifiable {
+public struct GDKEvent: Codable, Identifiable, Sendable {
     public let id: UUID
     public let name: String
-    public let payload: [String: AnyCodable]
+    public let payload: [String: String]
     public let timestamp: Date
 
-    public init(name: String, payload: [String: AnyCodable]) {
+    public init(name: String, payload: [String: String]) {
         self.id = UUID()
         self.name = name
         self.payload = payload
