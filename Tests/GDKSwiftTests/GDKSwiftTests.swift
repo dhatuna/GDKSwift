@@ -30,7 +30,8 @@ final class GDKSwiftTests: XCTestCase {
         }
     }
 
-    func testTrackEvent_SuccessfulSend() async throws {
+    // 이벤트 정상 전송
+    func testTrackEventSuccessfulSend() async throws {
         let mockClient = MockHttpClient()
         let config = GDKConfiguration(endpointURL: URL(string: "https://iam.jk")!, maxRetryCount: 3)
         let sdk = GDKSwift(httpClient: mockClient)
@@ -45,8 +46,9 @@ final class GDKSwiftTests: XCTestCase {
         XCTAssertEqual(mockClient.callCount, 1)
         XCTAssertEqual(mockClient.receivedParameters?["name"] as? String, "test_event")
     }
-
-    func testTrackEvent_FailureRetriesUpToMax() async throws {
+    
+    // 이벤트 전송 실패 테스트 (최대 재시도 횟수 도달 case)
+    func testTrackEventFailureRetriesUpToMax() async throws {
         let mockClient = MockHttpClient()
         mockClient.shouldFail = true
         let config = GDKConfiguration(endpointURL: URL(string: "https://iam.jk")!, maxRetryCount: 3)
@@ -69,7 +71,8 @@ final class GDKSwiftTests: XCTestCase {
         XCTAssertEqual(mockClient.callCount, 3)
     }
 
-    func testAddSubscriber_ReceivesEvent() async throws {
+    // Subscriber 추가 및 이벤트 수신 테스트
+    func testAddSubscriberReceivesEvent() async throws {
         let mockClient = MockHttpClient()
         let config = GDKConfiguration(endpointURL: URL(string: "https://iam.jk")!)
         let sdk = GDKSwift(httpClient: mockClient)
@@ -116,6 +119,7 @@ final class GDKSwiftTests: XCTestCase {
         try? FileManager.default.removeItem(at: fileURL)
     }
     
+    // Combine publisher 사용 테스트
     func testCombinePublisherReceivesEvent() async throws {
         let mockClient = MockHttpClient()
         let sdk = GDKSwift(httpClient: mockClient)
@@ -139,6 +143,7 @@ final class GDKSwiftTests: XCTestCase {
         await fulfillment(of: [expectation], timeout: 2.0)
     }
 
+    // 재전송시 재전송 시도간 time offset 증가 테스트
     func testSubscriberOffsetIsTrackedCorrectly() async throws {
         actor Recorder {
             private var names: [String] = []
