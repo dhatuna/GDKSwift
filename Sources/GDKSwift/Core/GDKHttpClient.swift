@@ -71,7 +71,6 @@ public final class GDKHttpClient: GDKHttpClientProtocol, Sendable {
             request = URLRequest(url: url)
         } else if method == .multipartPost, let files = attachments {
             let boundary = UUID().uuidString
-            request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
 
