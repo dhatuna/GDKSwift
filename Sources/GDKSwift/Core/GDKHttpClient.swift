@@ -52,12 +52,6 @@ public final class GDKHttpClient: GDKHttpClientProtocol, Sendable {
         
         var request = URLRequest(url: url)
         
-        if let headerValues = headers {
-            for (key, value) in headerValues {
-                request.addValue(value, forHTTPHeaderField: key)
-            }
-        }
-        
         if method == .get {
             if let parameters {
                 var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
@@ -106,8 +100,14 @@ public final class GDKHttpClient: GDKHttpClientProtocol, Sendable {
         }
         
         request.httpMethod = method == .multipartPost ? "POST" : method.rawValue
-
-        let (data, response) = try await session.data(for: URLRequest(url: url))
+        
+        if let headerValues = headers {
+            for (key, value) in headerValues {
+                request.addValue(value, forHTTPHeaderField: key)
+            }
+        }
+        
+        let (data, response) = try await session.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {
             throw GDKHttpError.invalidResponse(response)
